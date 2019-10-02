@@ -1,0 +1,7 @@
+Data/
+*.h5
+*.npy
+*.png
+*.pyc
+.idea/
+.ipynb_checkpoints/
