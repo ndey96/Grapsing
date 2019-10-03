@@ -3,6 +3,8 @@ from keras.applications import resnet50
 from keras.callbacks import CSVLogger, ModelCheckpoint, ReduceLROnPlateau
 import tensorflow as tf
 import numpy as np
+from numpy.random import randint, uniform
+from roation_helpers import perturb_xyz
 
 
 def prepare_model(create_network,
@@ -48,14 +50,62 @@ def prepare_model(create_network,
 def train_generator(batch_size, train_images, train_poses, train_targets):
     total_num = train_targets.shape[0]
     shuffled_indices = np.arange(total_num)
+
+    # For augmentation bin 2: min/max of xyz with successful grips
+    xmin, xmax = -0.11448083617113874, 0.02998685945970189
+    ymin, ymax = -0.16689919684337934, 0.07206119878809979
+    zmin, zmax = 0.4016680300406181, 0.5670741942050048
+    x_range = xmax - xmin
+    y_range = ymax - ymin
+    z_range = zmax - zmin
+
+    xyz_min_perturbs = (0.06, 0.1, 0.03)
     while True:
         np.random.shuffle(shuffled_indices)
-        for i in range(total_num//batch_size):
+        for i in range(total_num // batch_size):
             current_indices = shuffled_indices[i * batch_size:(
                 i + 1) * batch_size]
-            batch_images = train_images[current_indices]
-            batch_poses = train_poses[current_indices]
-            batch_targets = train_targets[current_indices]
+            batch_images = train_images[current_indices].copy()
+            batch_poses = train_poses[current_indices].copy()
+            batch_targets = train_targets[current_indices].copy()
+
+            # Generate synthetic negative examples
+            augmentation_bins = randint(4, size=batch_size)
+            for idx, aug_bin in zip(current_indices, augmentation_bins):
+                # aug_bin == 0 use original data
+                # Rotate pose orientation by rand(pi/4, pi) and mark as negative
+                if aug_bin == 1:
+                    rot_mag = uniform(np.pi / 4, np.pi)
+                    rot_sign = np.random.choice([-1, 1], 1)[0]
+                    batch_poses[idx][6] = (
+                        batch_poses[idx][6] - rot_sign * rot_mag) % (2 * np.pi)
+                    batch_targets[idx] = 0
+                # Shift xyz to be outside the range of the successful grip values and mark as negative
+                if aug_bin == 2:
+                    x_shift = [
+                        uniform(xmin - 2 * x_range, xmin),
+                        uniform(xmax, xmax + 2 * x_range)
+                    ][randint(2)]
+                    y_shift = [
+                        uniform(ymin - 2 * y_range, ymin),
+                        uniform(ymax, ymax + 2 * y_range)
+                    ][randint(2)]
+                    z_shift = [
+                        uniform(zmin - 2 * z_range, zmin),
+                        uniform(zmax, zmax + 2 * z_range)
+                    ][randint(2)]
+                    batch_poses[idx][0:3] = [x_shift, y_shift, z_shift]
+                    batch_targets[idx] = 0
+                # Perturb xyz in gripper coordinates based on robustness analysis and mark as negative
+                if aug_bin == 3:
+                    xyz_perturbations = np.array([
+                        uniform(xyz_min_perturbs[0], 3 * xyz_min_perturbs[0]),
+                        uniform(xyz_min_perturbs[1], 3 * xyz_min_perturbs[1]),
+                        uniform(xyz_min_perturbs[2], 3 * xyz_min_perturbs[2])
+                    ])
+                    batch_poses[idx][0:3] = perturb_xyz(batch_poses[idx][0:3],
+                                                        xyz_perturbations)
+                    batch_targets[idx] = 0
 
             yield {
                 'depth_input': batch_images,
@@ -76,7 +126,7 @@ def val_generator(batch_size, val_images, val_poses, val_targets):
         #           'final_output': val_targets
         #       }
         np.random.shuffle(shuffled_indices)
-        for i in range(total_num//batch_size):
+        for i in range(total_num // batch_size):
             current_indices = shuffled_indices[i * batch_size:(
                 i + 1) * batch_size]
             batch_images = val_images[current_indices]
@@ -93,16 +143,12 @@ def val_generator(batch_size, val_images, val_poses, val_targets):
 
 def load_data(train_set, val_set):
     print('\tLoading Poses')
-    pos_val_poses = np.load('Data/pos_val_poses.npy')
-    neg_val_poses = np.load('Data/neg_val_poses.npy')
-    pos_train_poses = np.load('Data/pos_train_poses.npy')
-    neg_train_poses = np.load('Data/neg_train_poses.npy')
+    val_poses = np.load('Data/pos_val_poses.npy')
+    train_poses = np.load('Data/pos_train_poses.npy')
 
     print('\tLoading Targets')
-    pos_val_targets = np.ones((pos_val_poses.shape[0], 1))
-    neg_val_targets = np.zeros((neg_val_poses.shape[0], 1))
-    pos_train_targets = np.ones((pos_train_poses.shape[0], 1))
-    neg_train_targets = np.zeros((neg_train_poses.shape[0], 1))
+    val_targets = np.ones((val_poses.shape[0], 1))
+    train_targets = np.ones((train_poses.shape[0], 1))
 
     print('\tLoading Images')
     val_images = np.load('Data/depth_validation_image_data.npy')
@@ -110,14 +156,6 @@ def load_data(train_set, val_set):
 
     val_images = np.reshape(val_images, (*val_images.shape, 1))
     train_images = np.reshape(train_images, (*train_images.shape, 1))
-
-    val_poses = np.concatenate([pos_val_poses, neg_val_poses], axis=0)
-    train_poses = np.concatenate([pos_train_poses, neg_train_poses], axis=0)
-    val_targets = np.concatenate([pos_val_targets, neg_val_targets], axis=0)
-    train_targets = np.concatenate(
-        [pos_train_targets, neg_train_targets], axis=0)
-    val_images = np.concatenate([val_images, val_images], axis=0)
-    train_images = np.concatenate([train_images, train_images], axis=0)
 
     return train_images, val_images, train_poses, val_poses, train_targets, val_targets
 
@@ -218,7 +256,6 @@ if __name__ == '__main__':
     # train_images = train_images[:cutoff]
     # train_poses = train_poses[:cutoff]
     # train_targets = train_targets[:cutoff]
-
 
     print('Configuring Generator')
     train_gen = train_generator(BATCH_SIZE, train_images, train_poses,
