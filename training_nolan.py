@@ -71,7 +71,7 @@ def train_generator(batch_size, train_images, train_poses, train_targets):
 
             # Generate synthetic negative examples
             augmentation_bins = randint(4, size=batch_size)
-            for idx, aug_bin in zip(current_indices, augmentation_bins):
+            for idx, aug_bin in enumerate(augmentation_bins):
                 # aug_bin == 0 use original data
                 # Rotate pose orientation by rand(pi/4, pi) and mark as negative
                 if aug_bin == 1:
@@ -103,7 +103,7 @@ def train_generator(batch_size, train_images, train_poses, train_targets):
                         uniform(xyz_min_perturbs[1], 3 * xyz_min_perturbs[1]),
                         uniform(xyz_min_perturbs[2], 3 * xyz_min_perturbs[2])
                     ])
-                    batch_poses[idx][0:3] = perturb_xyz(batch_poses[idx][0:3],
+                    batch_poses[idx][0:3] = perturb_xyz(batch_poses[idx],
                                                         xyz_perturbations)
                     batch_targets[idx] = 0
 
@@ -252,10 +252,10 @@ if __name__ == '__main__':
     train_images, val_images, train_poses, val_poses, train_targets, val_targets = load_data(
         train_set, val_set)
 
-    cutoff = 255
-    train_images = train_images[:cutoff]
-    train_poses = train_poses[:cutoff]
-    train_targets = train_targets[:cutoff]
+    # cutoff = 255
+    # train_images = train_images[:cutoff]
+    # train_poses = train_poses[:cutoff]
+    # train_targets = train_targets[:cutoff]
 
     print('Configuring Generator')
     train_gen = train_generator(BATCH_SIZE, train_images, train_poses,

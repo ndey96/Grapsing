@@ -4,7 +4,9 @@ import numpy as np
 def perturb_xyz(pose, perturbations):
     R = axis_angle_to_rotmat(*(pose[3:6] * pose[6]))
     H = homogenous_transform(R, pose[0:3])
-    return H @ perturbations
+    P = np.ones(len(perturbations) + 1)
+    P[0:len(perturbations)] = perturbations
+    return (H @ P)[0:3]
 
 
 def axis_angle_to_rotmat(Rx, Ry, Rz):
@@ -49,7 +51,8 @@ def homogenous_transform(R, vect):
 
     H = np.zeros((4, 4))
     H[0:3, 0:3] = R
-    frame_displacement = vect + [1]
+    frame_displacement = np.ones(len(vect) + 1)
+    frame_displacement[0:len(vect)] = vect
     D = np.array(frame_displacement)
     D.shape = (1, 4)
     H[:, 3] = D
