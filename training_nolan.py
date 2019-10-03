@@ -4,7 +4,7 @@ from keras.callbacks import CSVLogger, ModelCheckpoint, ReduceLROnPlateau
 import tensorflow as tf
 import numpy as np
 from numpy.random import randint, uniform
-from roation_helpers import perturb_xyz
+from rotation_helpers import perturb_xyz
 
 
 def prepare_model(create_network,
@@ -252,10 +252,10 @@ if __name__ == '__main__':
     train_images, val_images, train_poses, val_poses, train_targets, val_targets = load_data(
         train_set, val_set)
 
-    # cutoff = 255
-    # train_images = train_images[:cutoff]
-    # train_poses = train_poses[:cutoff]
-    # train_targets = train_targets[:cutoff]
+    cutoff = 255
+    train_images = train_images[:cutoff]
+    train_poses = train_poses[:cutoff]
+    train_targets = train_targets[:cutoff]
 
     print('Configuring Generator')
     train_gen = train_generator(BATCH_SIZE, train_images, train_poses,
