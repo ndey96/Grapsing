@@ -237,7 +237,7 @@ if __name__ == '__main__':
     train_gen = train_generator(BATCH_SIZE, train_poses, train_targets)
 
     val_gen = val_generator(BATCH_SIZE, val_poses, val_targets)
-
+    print(model.summary())
     print('Beginning Training')
     model.fit_generator(
         train_gen,
