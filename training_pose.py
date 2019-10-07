@@ -47,7 +47,7 @@ def prepare_model(create_network,
     return (template_model, model)
 
 
-def train_generator(batch_size, train_images, train_poses, train_targets):
+def train_generator(batch_size, train_poses, train_targets):
     total_num = train_targets.shape[0]
     shuffled_indices = np.arange(total_num)
 
@@ -65,7 +65,6 @@ def train_generator(batch_size, train_images, train_poses, train_targets):
         for i in range(total_num // batch_size):
             current_indices = shuffled_indices[i * batch_size:(
                 i + 1) * batch_size]
-            batch_images = train_images[current_indices].copy()
             batch_poses = train_poses[current_indices].copy()
             batch_targets = train_targets[current_indices].copy()
 
@@ -107,38 +106,21 @@ def train_generator(batch_size, train_images, train_poses, train_targets):
                                                         xyz_perturbations)
                     batch_targets[idx] = 0
 
-            yield {
-                'depth_input': batch_images,
-                'pose_input': batch_poses
-            }, {
-                'final_output': batch_targets
-            }
+            yield {'pose_input': batch_poses}, {'final_output': batch_targets}
 
 
-def val_generator(batch_size, val_images, val_poses, val_targets):
+def val_generator(batch_size, val_poses, val_targets):
     total_num = val_targets.shape[0]
     shuffled_indices = np.arange(total_num)
     while True:
-        # yield {
-        #           'depth_input': val_images,
-        #           'pose_input': val_poses
-        #       }, {
-        #           'final_output': val_targets
-        #       }
         np.random.shuffle(shuffled_indices)
         for i in range(total_num // batch_size):
             current_indices = shuffled_indices[i * batch_size:(
                 i + 1) * batch_size]
-            batch_images = val_images[current_indices]
             batch_poses = val_poses[current_indices]
             batch_targets = val_targets[current_indices]
 
-            yield {
-                'depth_input': batch_images,
-                'pose_input': batch_poses
-            }, {
-                'final_output': batch_targets
-            }
+            yield {'pose_input': batch_poses}, {'final_output': batch_targets}
 
 
 def load_data(train_set, val_set):
@@ -150,19 +132,14 @@ def load_data(train_set, val_set):
     val_targets = np.ones((val_poses.shape[0], 1))
     train_targets = np.ones((train_poses.shape[0], 1))
 
-    print('\tLoading Images')
-    val_images = np.load('Data/depth_validation_image_data.npy')
-    train_images = np.load('Data/depth_training_image_data.npy')
-
-    val_images = np.reshape(val_images, (*val_images.shape, 1))
-    train_images = np.reshape(train_images, (*train_images.shape, 1))
-
-    return train_images, val_images, train_poses, val_poses, train_targets, val_targets
+    return train_poses, val_poses, train_targets, val_targets
 
 
 def load_network(arch):
-    if arch == 'cnn_nolan':
-        from Models.cnn_nolan import create_network
+    if arch == 'cnn_pose_img':
+        from Models.cnn_pose_img import create_network
+    elif arch == 'fcn_pose':
+        from Models.fcn_pose import create_network
     else:
         raise ValueError('{} is not a valid architecture'.format(arch))
     return create_network
@@ -249,19 +226,17 @@ if __name__ == '__main__':
         kernel_num=kernel_num)
 
     print('Loading Data')
-    train_images, val_images, train_poses, val_poses, train_targets, val_targets = load_data(
+    train_poses, val_poses, train_targets, val_targets = load_data(
         train_set, val_set)
 
     # cutoff = 255
-    # train_images = train_images[:cutoff]
     # train_poses = train_poses[:cutoff]
     # train_targets = train_targets[:cutoff]
 
     print('Configuring Generator')
-    train_gen = train_generator(BATCH_SIZE, train_images, train_poses,
-                                train_targets)
+    train_gen = train_generator(BATCH_SIZE, train_poses, train_targets)
 
-    val_gen = val_generator(BATCH_SIZE, val_images, val_poses, val_targets)
+    val_gen = val_generator(BATCH_SIZE, val_poses, val_targets)
 
     print('Beginning Training')
     model.fit_generator(
