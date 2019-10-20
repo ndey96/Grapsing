@@ -75,7 +75,7 @@ def train_generator(batch_size, train_images, train_poses, train_targets):
                 # aug_bin == 0 use original data
                 # Rotate pose orientation by rand(pi/4, pi) and mark as negative
                 if aug_bin == 1:
-                    rot_mag = uniform(np.pi / 4, np.pi)
+                    rot_mag = uniform(np.pi / 6, np.pi / 3)
                     rot_sign = np.random.choice([-1, 1], 1)[0]
                     batch_poses[idx][6] = (
                         batch_poses[idx][6] - rot_sign * rot_mag) % (2 * np.pi)
@@ -83,25 +83,28 @@ def train_generator(batch_size, train_images, train_poses, train_targets):
                 # Shift xyz to be outside the range of the successful grip values and mark as negative
                 if aug_bin == 2:
                     x_shift = [
-                        uniform(xmin - 2 * x_range, xmin),
-                        uniform(xmax, xmax + 2 * x_range)
+                        uniform(xmin - 1 * x_range, xmin),
+                        uniform(xmax, xmax + 1 * x_range)
                     ][randint(2)]
                     y_shift = [
-                        uniform(ymin - 2 * y_range, ymin),
-                        uniform(ymax, ymax + 2 * y_range)
+                        uniform(ymin - 1 * y_range, ymin),
+                        uniform(ymax, ymax + 1 * y_range)
                     ][randint(2)]
                     z_shift = [
-                        uniform(zmin - 2 * z_range, zmin),
-                        uniform(zmax, zmax + 2 * z_range)
+                        uniform(zmin - 1 * z_range, zmin),
+                        uniform(zmax, zmax + 1 * z_range)
                     ][randint(2)]
                     batch_poses[idx][0:3] = [x_shift, y_shift, z_shift]
                     batch_targets[idx] = 0
                 # Perturb xyz in gripper coordinates based on robustness analysis and mark as negative
                 if aug_bin == 3:
                     xyz_perturbations = np.array([
-                        uniform(xyz_min_perturbs[0], 3 * xyz_min_perturbs[0]),
-                        uniform(xyz_min_perturbs[1], 3 * xyz_min_perturbs[1]),
-                        uniform(xyz_min_perturbs[2], 3 * xyz_min_perturbs[2])
+                        uniform(0.5 * xyz_min_perturbs[0],
+                                1 * xyz_min_perturbs[0]),
+                        uniform(0.5 * xyz_min_perturbs[1],
+                                1 * xyz_min_perturbs[1]),
+                        uniform(0.5 * xyz_min_perturbs[2],
+                                1 * xyz_min_perturbs[2])
                     ])
                     batch_poses[idx][0:3] = perturb_xyz(batch_poses[idx],
                                                         xyz_perturbations)
