@@ -74,7 +74,7 @@ def train_generator(batch_size, train_poses, train_targets):
                 # aug_bin == 0 use original data
                 # Rotate pose orientation by rand(pi/4, pi) and mark as negative
                 if aug_bin == 1:
-                    rot_mag = uniform(np.pi / 6, np.pi / 3)
+                    rot_mag = uniform(np.pi / 12, np.pi / 3)
                     rot_sign = np.random.choice([-1, 1], 1)[0]
                     batch_poses[idx][6] = (
                         batch_poses[idx][6] - rot_sign * rot_mag) % (2 * np.pi)
@@ -98,11 +98,11 @@ def train_generator(batch_size, train_poses, train_targets):
                 # Perturb xyz in gripper coordinates based on robustness analysis and mark as negative
                 if aug_bin == 3:
                     xyz_perturbations = np.array([
-                        uniform(0.5 * xyz_min_perturbs[0],
+                        uniform(0.25 * xyz_min_perturbs[0],
                                 1 * xyz_min_perturbs[0]),
-                        uniform(0.5 * xyz_min_perturbs[1],
+                        uniform(0.25 * xyz_min_perturbs[1],
                                 1 * xyz_min_perturbs[1]),
-                        uniform(0.5 * xyz_min_perturbs[2],
+                        uniform(0.25 * xyz_min_perturbs[2],
                                 1 * xyz_min_perturbs[2])
                     ])
                     batch_poses[idx][0:3] = perturb_xyz(batch_poses[idx],
